@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Clapperboard, Music, Sparkles, RefreshCw, Volume2, VolumeX, Eye, Flame, Compass, FastForward } from 'lucide-react';
+import { FileText, Clapperboard, Music, Sparkles, RefreshCw, Volume2, VolumeX, Flame, Compass, FastForward, Mic } from 'lucide-react';
 import { ProjectData, BrollClip } from '@/types';
 
 interface InspectorPanelProps {
@@ -11,6 +11,7 @@ interface InspectorPanelProps {
   onSeek: (time: number) => void;
   onOpenSwapModal: (clip: BrollClip) => void;
   onRegenerateClip: (clipId: string) => void;
+  onOpenElevenLabs: () => void;
   isAudioMuted: boolean;
   onToggleMute: () => void;
 }
@@ -22,6 +23,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   onSeek,
   onOpenSwapModal,
   onRegenerateClip,
+  onOpenElevenLabs,
   isAudioMuted,
   onToggleMute,
 }) => {
@@ -95,10 +97,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               </div>
             </div>
             <div className="bg-studio-800/80 p-2 rounded-lg border border-studio-border/50">
-              <div className="text-[10px] text-slate-400 uppercase font-mono">Sync Mode</div>
+              <div className="text-[10px] text-slate-400 uppercase font-mono">Voice Engine</div>
               <div className="text-xs font-bold text-accent-emerald flex items-center justify-center gap-1 mt-0.5">
                 <Compass className="w-3 h-3" />
-                Speech Beats
+                {project.voiceName || 'Multilingual'}
               </div>
             </div>
           </div>
@@ -135,13 +137,22 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               })}
             </div>
 
-            <div className="bg-gradient-to-r from-accent-purple/10 to-accent-indigo/10 p-3 rounded-lg border border-accent-purple/20 text-xs">
-              <div className="flex items-center gap-1.5 font-semibold text-accent-indigo mb-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Semantic Insight</span>
+            {/* Quick ElevenLabs banner inside transcript */}
+            <div className="bg-gradient-to-r from-accent-purple/15 to-accent-indigo/15 p-3 rounded-lg border border-accent-purple/30 text-xs">
+              <div className="flex items-center justify-between font-semibold text-purple-300 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <Mic className="w-3.5 h-3.5 text-accent-cyan" />
+                  <span>ШІ Озвучка ElevenLabs</span>
+                </span>
+                <button
+                  onClick={onOpenElevenLabs}
+                  className="px-2 py-0.5 rounded bg-accent-cyan text-black font-bold text-[10px] hover:opacity-90"
+                >
+                  Змінити голос
+                </button>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                «Cadence-Aware Engine автоматично розбив войсовер на {project.clips.length} візуальних сцен, прив&apos;язавши моменти монтажних склейок до пауз дихання автора».
+                Поточний голос: <strong className="text-white">{project.voiceName || 'Adam (ElevenLabs)'}</strong>. Ви можете ввести будь-який український текст та обрати інший тембр.
               </p>
             </div>
           </div>
@@ -237,6 +248,25 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
       {/* Tab 3: Sound Design & SFX */}
       {activeTab === 'audio' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* ElevenLabs Voice Switcher Box */}
+          <div className="p-3 rounded-xl bg-gradient-to-r from-accent-purple/20 to-accent-indigo/20 border border-accent-purple/40">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-accent-cyan" />
+                <span className="text-xs font-bold text-white">ШІ Голос ElevenLabs</span>
+              </div>
+              <button
+                onClick={onOpenElevenLabs}
+                className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-accent-cyan text-black hover:opacity-90 transition-all"
+              >
+                Вибрати інший тембр
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-300">
+              Поточний: <strong className="text-accent-cyan">{project.voiceName || 'Adam'}</strong> ({project.wordsPerMinute} WPM)
+            </div>
+          </div>
+
           <div className="flex items-center justify-between pb-2 border-b border-studio-border">
             <span className="text-xs font-semibold text-slate-200">Main Audio Voiceover</span>
             <button

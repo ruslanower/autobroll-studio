@@ -28,12 +28,26 @@ export interface SfxMarker {
   time: number;
 }
 
+export interface ElevenLabsVoice {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  previewAudioUrl?: string;
+  gender: 'male' | 'female';
+  accent: string;
+  color: string;
+  recommendedFor: string;
+}
+
 export interface ProjectData {
   id: string;
   title: string;
   aspectRatio: '9:16' | '16:9';
   audioDuration: number;
   audioUrl: string;
+  voiceId?: string;
+  voiceName?: string;
   pacingMode: 'high-energy-reels' | 'narrative-documentary' | 'tech-explainer';
   wordsPerMinute: number;
   averageCutDuration: number;

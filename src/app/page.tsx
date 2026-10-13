@@ -8,6 +8,7 @@ import { Timeline } from '@/components/Timeline';
 import { SwapModal } from '@/components/SwapModal';
 import { ExportModal } from '@/components/ExportModal';
 import { SettingsModal } from '@/components/SettingsModal';
+import { ElevenLabsModal } from '@/components/ElevenLabsModal';
 import { SAMPLE_PROJECTS } from '@/data/mockProjects';
 import { ProjectData, BrollClip, CaptionStyle } from '@/types';
 
@@ -24,11 +25,36 @@ export default function AutoBrollStudioApp() {
   // Modals state
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isElevenLabsOpen, setIsElevenLabsOpen] = useState<boolean>(false);
   const [isSwapOpen, setIsSwapOpen] = useState<boolean>(false);
   const [swapTargetClip, setSwapTargetClip] = useState<BrollClip | null>(null);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
 
+  // ElevenLabs API Key state
+  const [elevenLabsApiKey, setElevenLabsApiKey] = useState<string>('');
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Load saved API key from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedKey = localStorage.getItem('elevenlabs_api_key');
+      if (savedKey) {
+        setElevenLabsApiKey(savedKey);
+      }
+    } catch {
+      // LocalStorage might be disabled in sandboxed iframe
+    }
+  }, []);
+
+  const handleSaveElevenLabsKey = (key: string) => {
+    setElevenLabsApiKey(key);
+    try {
+      localStorage.setItem('elevenlabs_api_key', key);
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
   // Sync project switch
   const handleSelectProject = (projectId: string) => {
@@ -120,7 +146,6 @@ export default function AutoBrollStudioApp() {
     setIsRegenerating(true);
     setTimeout(() => {
       setIsRegenerating(false);
-      // Shuffle transition effects and re-optimize cadence
       setProject((prev) => ({
         ...prev,
         clips: prev.clips.map((c, i) => ({
@@ -129,7 +154,23 @@ export default function AutoBrollStudioApp() {
           motionEffect: (['ken-burns-in', 'ken-burns-out', 'pan-left', 'static'] as const)[i % 4],
         })),
       }));
-    }, 1500);
+    }, 1200);
+  };
+
+  // Apply newly generated ElevenLabs Voiceover
+  const handleApplyVoiceover = (newProjectData: Partial<ProjectData>) => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setProject((prev) => {
+      const updated = {
+        ...prev,
+        ...newProjectData,
+      };
+      if (updated.clips && updated.clips.length > 0) {
+        setSelectedClip(updated.clips[0]);
+      }
+      return updated;
+    });
   };
 
   return (
@@ -148,6 +189,7 @@ export default function AutoBrollStudioApp() {
         onSelectProject={handleSelectProject}
         onOpenExport={() => setIsExportOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenElevenLabs={() => setIsElevenLabsOpen(true)}
         onRegenerateAll={handleRegenerateAll}
         isRegenerating={isRegenerating}
       />
@@ -161,6 +203,7 @@ export default function AutoBrollStudioApp() {
           onSeek={handleSeek}
           onOpenSwapModal={handleOpenSwapModal}
           onRegenerateClip={handleRegenerateClip}
+          onOpenElevenLabs={() => setIsElevenLabsOpen(true)}
           isAudioMuted={isAudioMuted}
           onToggleMute={() => setIsAudioMuted((prev) => !prev)}
         />
@@ -206,9 +249,19 @@ export default function AutoBrollStudioApp() {
         project={project}
       />
 
+      <ElevenLabsModal
+        isOpen={isElevenLabsOpen}
+        onClose={() => setIsElevenLabsOpen(false)}
+        onApplyVoiceover={handleApplyVoiceover}
+        savedApiKey={elevenLabsApiKey}
+        onSaveApiKey={handleSaveElevenLabsKey}
+      />
+
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        elevenLabsKey={elevenLabsApiKey}
+        onSaveElevenLabsKey={handleSaveElevenLabsKey}
       />
     </div>
   );

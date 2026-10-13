@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Sliders, Download, Github, Video, Layers, Wand2 } from 'lucide-react';
+import { Sliders, Download, Github, Video, Layers, Wand2, Mic } from 'lucide-react';
 import { ProjectData } from '@/types';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   onSelectProject: (projectId: string) => void;
   onOpenExport: () => void;
   onOpenSettings: () => void;
+  onOpenElevenLabs: () => void;
   onRegenerateAll: () => void;
   isRegenerating: boolean;
 }
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectProject,
   onOpenExport,
   onOpenSettings,
+  onOpenElevenLabs,
   onRegenerateAll,
   isRegenerating,
 }) => {
@@ -73,20 +75,31 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
         <div className="text-xs font-mono text-slate-400 px-2.5 py-1 rounded-md bg-studio-800/40 border border-studio-border/50">
-          {currentProject.clips.length} B-Roll Clips • {currentProject.audioDuration}s
+          {currentProject.voiceName ? `Voice: ${currentProject.voiceName}` : 'Custom Audio'} • {currentProject.clips.length} Clips
         </div>
       </div>
 
       {/* Right Action Bar */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
+        {/* ElevenLabs AI Voiceover Generator Button */}
+        <button
+          onClick={onOpenElevenLabs}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-accent-purple/30 to-accent-indigo/30 hover:from-accent-purple/40 hover:to-accent-indigo/40 text-purple-200 border border-accent-purple/50 shadow-sm shadow-accent-purple/20 transition-all active:scale-95"
+          title="Генерація ШІ Озвучки з вибором голосу від ElevenLabs"
+        >
+          <Mic className="w-3.5 h-3.5 text-accent-cyan" />
+          <span>ШІ Озвучка ElevenLabs</span>
+        </button>
+
+        {/* AI Auto-Direct */}
         <button
           onClick={onRegenerateAll}
           disabled={isRegenerating}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-border transition-all active:scale-95 disabled:opacity-50"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-studio-800 hover:bg-studio-700 text-slate-200 border border-studio-border transition-all active:scale-95 disabled:opacity-50"
           title="Regenerate all B-Roll scenes using AI Cadence Director"
         >
           <Wand2 className={`w-3.5 h-3.5 text-accent-cyan ${isRegenerating ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">AI Auto-Direct</span>
+          <span>AI Auto-Direct</span>
         </button>
 
         <button

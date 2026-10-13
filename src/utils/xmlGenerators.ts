@@ -1,24 +1,38 @@
 import { ProjectData } from '@/types';
 
 /**
- * Generate Apple Final Cut Pro 7 / Adobe Premiere Pro XML format
+ * Escape XML special characters to prevent parser and DTD errors
+ */
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Generate Apple Final Cut Pro 7 / Adobe Premiere Pro XML format (xmeml v5)
  */
 export function generatePremiereXML(project: ProjectData): string {
   const fps = 30;
   const timebase = fps;
-  const totalFrames = Math.round(project.audioDuration * fps);
+  const totalFrames = Math.max(1, Math.round(project.audioDuration * fps));
   const width = project.aspectRatio === '9:16' ? 1080 : 1920;
   const height = project.aspectRatio === '9:16' ? 1920 : 1080;
 
   const clipItems = project.clips.map((clip, index) => {
     const inFrame = 0;
-    const outFrame = Math.round(clip.duration * fps);
+    const outFrame = Math.max(1, Math.round(clip.duration * fps));
     const startFrame = Math.round(clip.startTime * fps);
     const endFrame = Math.round(clip.endTime * fps);
+    const escapedTitle = escapeXml(clip.title);
+    const escapedPrompt = escapeXml(clip.promptOrKeyword);
+    const escapedUrl = escapeXml(clip.videoUrl);
 
-    return `
-        <clipitem id="clipitem-${index + 1}">
-          <name>${clip.title}</name>
+    return `        <clipitem id="clipitem-${index + 1}">
+          <name>${escapedTitle}</name>
           <duration>${outFrame}</duration>
           <rate>
             <timebase>${timebase}</timebase>
@@ -29,8 +43,8 @@ export function generatePremiereXML(project: ProjectData): string {
           <in>${inFrame}</in>
           <out>${outFrame}</out>
           <file id="file-${index + 1}">
-            <name>${clip.title}.mp4</name>
-            <pathurl>${clip.videoUrl}</pathurl>
+            <name>${escapedTitle}.mp4</name>
+            <pathurl>${escapedUrl}</pathurl>
             <rate>
               <timebase>${timebase}</timebase>
             </rate>
@@ -45,17 +59,20 @@ export function generatePremiereXML(project: ProjectData): string {
             </media>
           </file>
           <logginginfo>
-            <description>AutoB-Roll Studio Scene: ${clip.promptOrKeyword} (${clip.sourceType.toUpperCase()})</description>
+            <description>AutoB-Roll Scene: ${escapedPrompt}</description>
             <scene>${index + 1}</scene>
           </logginginfo>
         </clipitem>`;
   }).join('\n');
 
+  const escapedProjectTitle = escapeXml(project.title);
+  const escapedAudioUrl = escapeXml(project.audioUrl);
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="5">
   <sequence id="sequence-1">
-    <name>${project.title} [AutoB-Roll VanzaLabs]</name>
+    <name>${escapedProjectTitle} [AutoB-Roll VanzaLabs]</name>
     <duration>${totalFrames}</duration>
     <rate>
       <timebase>${timebase}</timebase>
@@ -88,7 +105,7 @@ ${clipItems}
             <out>${totalFrames}</out>
             <file id="file-audio-main">
               <name>Voiceover.mp3</name>
-              <pathurl>${project.audioUrl}</pathurl>
+              <pathurl>${escapedAudioUrl}</pathurl>
             </file>
           </clipitem>
         </track>
@@ -99,37 +116,63 @@ ${clipItems}
 }
 
 /**
- * Generate Final Cut Pro X XML (.fcpxml)
+ * Generate Apple Final Cut Pro XML (.fcpxml v1.9 / v1.10)
+ * Strictly compliant with Apple FCPXML DTD specification:
+ * - <!ELEMENT asset (media-rep+ , metadata?)>
+ * - Asset contains <media-rep kind="original-media" src="..." /> instead of src attribute on <asset>
+ * - Sequential clips in <spine>
  */
 export function generateFCPXML(project: ProjectData): string {
   const fps = 30;
   const width = project.aspectRatio === '9:16' ? 1080 : 1920;
   const height = project.aspectRatio === '9:16' ? 1920 : 1080;
   const totalSeconds = project.audioDuration;
+  const totalDurationFraction = `${Math.round(totalSeconds * 1000)}/1000s`;
 
+  // Define asset resources compliant with DTD <!ELEMENT asset (media-rep+, metadata?)>
+  const resources = project.clips.map((clip, idx) => {
+    const durFraction = `${Math.round(clip.duration * 1000)}/1000s`;
+    const escapedTitle = escapeXml(clip.title);
+    const escapedUrl = escapeXml(clip.videoUrl);
+
+    return `    <asset id="r${idx + 2}" name="${escapedTitle}" duration="${durFraction}" format="r1" hasVideo="1">
+      <media-rep kind="original-media" src="${escapedUrl}" />
+    </asset>`;
+  }).join('\n');
+
+  // Spine clips: in FCPXML spine, items are arranged in story order without gaps.
   const spineClips = project.clips.map((clip, idx) => {
     const durFraction = `${Math.round(clip.duration * 1000)}/1000s`;
     const offsetFraction = `${Math.round(clip.startTime * 1000)}/1000s`;
+    const escapedTitle = escapeXml(clip.title);
 
-    return `          <asset-clip name="${clip.title}" ref="r${idx + 2}" offset="${offsetFraction}" duration="${durFraction}" start="0s" />`;
+    // If it's the first clip, attach the voiceover audio asset as connected clip on lane -1
+    if (idx === 0) {
+      return `          <asset-clip name="${escapedTitle}" ref="r${idx + 2}" offset="${offsetFraction}" duration="${durFraction}" start="0s" format="r1">
+            <asset-clip name="Voiceover Audio" ref="r_audio" lane="-1" offset="${offsetFraction}" duration="${totalDurationFraction}" start="0s" audioRole="dialogue" />
+          </asset-clip>`;
+    }
+
+    return `          <asset-clip name="${escapedTitle}" ref="r${idx + 2}" offset="${offsetFraction}" duration="${durFraction}" start="0s" format="r1" />`;
   }).join('\n');
 
-  const resources = project.clips.map((clip, idx) => {
-    return `    <asset id="r${idx + 2}" name="${clip.title}" src="${clip.videoUrl}" duration="${Math.round(clip.duration * 1000)}/1000s" hasVideo="1" format="r1" />`;
-  }).join('\n');
+  const escapedProjectTitle = escapeXml(project.title);
+  const escapedAudioUrl = escapeXml(project.audioUrl);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>
 <fcpxml version="1.9">
   <resources>
-    <format id="r1" name="FFVideoFormat${width}x${height}p${fps}" frameDuration="1/${fps}s" width="${width}" height="${height}" />
-    <asset id="r_audio" name="Voiceover" src="${project.audioUrl}" duration="${Math.round(totalSeconds * 1000)}/1000s" hasAudio="1" />
+    <format id="r1" name="FFVideoFormat${width}x${height}p${fps}" frameDuration="1/${fps}s" width="${width}" height="${height}" colorSpace="1-1-1 (Rec. 709)" />
+    <asset id="r_audio" name="Voiceover" duration="${totalDurationFraction}" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+      <media-rep kind="original-media" src="${escapedAudioUrl}" />
+    </asset>
 ${resources}
   </resources>
   <library>
     <event name="AutoB-Roll Studio Events">
-      <project name="${project.title}">
-        <sequence format="r1" duration="${Math.round(totalSeconds * 1000)}/1000s">
+      <project name="${escapedProjectTitle}">
+        <sequence format="r1" duration="${totalDurationFraction}" tcStart="0s" tcFormat="NDF">
           <spine>
 ${spineClips}
           </spine>
@@ -147,7 +190,7 @@ export function generateDaVinciEDL(project: ProjectData): string {
   const fps = 30;
 
   function toTC(seconds: number): string {
-    const totalFrames = Math.floor(seconds * fps);
+    const totalFrames = Math.max(0, Math.floor(seconds * fps));
     const hrs = Math.floor(totalFrames / (3600 * fps));
     const mins = Math.floor((totalFrames % (3600 * fps)) / (60 * fps));
     const secs = Math.floor((totalFrames % (60 * fps)) / fps);
@@ -157,7 +200,8 @@ export function generateDaVinciEDL(project: ProjectData): string {
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}:${pad(frms)}`;
   }
 
-  let edl = `TITLE: ${project.title.substring(0, 30).toUpperCase()}\nFCM: NON-DROP FRAME\n\n`;
+  const cleanTitle = project.title.replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 30).toUpperCase();
+  let edl = `TITLE: ${cleanTitle || 'AUTOBROLL'}\nFCM: NON-DROP FRAME\n\n`;
 
   project.clips.forEach((clip, index) => {
     const num = (index + 1).toString().padStart(3, '0');
@@ -167,8 +211,8 @@ export function generateDaVinciEDL(project: ProjectData): string {
     const recOut = toTC(clip.endTime);
 
     edl += `${num}  AX       V     C        ${srcIn} ${srcOut} ${recIn} ${recOut}\n`;
-    edl += `* FROM CLIP NAME: ${clip.title}.mp4\n`;
-    edl += `* SCENE PROMPT: ${clip.promptOrKeyword}\n\n`;
+    edl += `* FROM CLIP NAME: ${clip.title.replace(/[^a-zA-Z0-9_]/g, '_')}.mp4\n`;
+    edl += `* SCENE PROMPT: ${clip.promptOrKeyword.replace(/[\r\n]/g, ' ')}\n\n`;
   });
 
   return edl;

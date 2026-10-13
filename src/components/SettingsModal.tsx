@@ -1,14 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Key, Save, Check, ShieldCheck, Database, Sparkles } from 'lucide-react';
+import { X, Key, Save, Check, ShieldCheck, Mic } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  elevenLabsKey: string;
+  onSaveElevenLabsKey: (key: string) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose,
+  elevenLabsKey: initialElevenKey,
+  onSaveElevenLabsKey,
+}) => {
+  const [elevenLabsKey, setElevenLabsKey] = useState(initialElevenKey || '');
   const [deepgramKey, setDeepgramKey] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
   const [pexelsKey, setPexelsKey] = useState('');
@@ -18,11 +26,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   if (!isOpen) return null;
 
   const handleSave = () => {
+    onSaveElevenLabsKey(elevenLabsKey);
     setIsSaved(true);
     setTimeout(() => {
       setIsSaved(false);
       onClose();
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -41,11 +50,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div className="bg-studio-900/60 p-3 rounded-xl border border-studio-border/60 flex items-start gap-2.5 text-xs text-slate-300">
             <ShieldCheck className="w-4 h-4 text-accent-emerald shrink-0 mt-0.5" />
             <p>
-              Your keys are saved exclusively in your browser&apos;s local memory and sent directly to the AI providers. Never stored on our backend.
+              Your keys are saved securely in your browser&apos;s local memory and sent directly to the AI providers. Never stored on our backend.
+            </p>
+          </div>
+
+          {/* ElevenLabs API Key */}
+          <div className="space-y-1.5 p-3 rounded-xl bg-accent-purple/10 border border-accent-purple/30">
+            <label className="text-xs font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-accent-purple">
+                <Mic className="w-3.5 h-3.5" />
+                ElevenLabs API Key
+              </span>
+              <span className="text-[10px] text-accent-cyan font-mono">ШІ Озвучка & Голоси</span>
+            </label>
+            <input
+              type="password"
+              placeholder="sk_... або xi-api-key"
+              value={elevenLabsKey}
+              onChange={(e) => setElevenLabsKey(e.target.value)}
+              className="w-full bg-studio-900 border border-studio-border rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-purple"
+            />
+            <p className="text-[10px] text-slate-400">
+              Потрібен для генерації реального голосу за вашим кастомним текстом через модель Multilingual v2.
             </p>
           </div>
 
